@@ -9,12 +9,12 @@ Build a webcam-based AI monitor that detects if the user is studying and alerts 
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌────────────┐     ┌───────────┐
-│   Camera     │────▶│   Detector    │────▶│  Decision   │────▶│  Alerter   │
-│  (OpenCV)    │     │  (AI Model)   │     │   Engine    │     │ (Sound/TTS)│
+│   Camera    │────▶│   Detector   │────▶│  Decision  │────▶│  Alerter  │
+│  (OpenCV)   │     │  (AI Model)  │     │   Engine   │     │(Sound/TTS)│
 └─────────────┘     └──────────────┘     └────────────┘     └───────────┘
       │                                         │
       │              ┌──────────────┐           │
-      └─────────────▶│    Config     │◀──────────┘
+      └─────────────▶│    Config    │◀──────────┘
                      └──────────────┘
 ```
 
