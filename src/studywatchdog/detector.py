@@ -15,7 +15,7 @@ from typing import Protocol
 import numpy as np
 import torch
 from PIL import Image
-from transformers import AutoModel, AutoProcessor
+from transformers import SiglipImageProcessor, SiglipModel, SiglipTokenizer
 
 from studywatchdog.config import DetectorConfig
 
@@ -84,8 +84,9 @@ class SigLIPDetector:
 
     def __init__(self, config: DetectorConfig) -> None:
         self._config = config
-        self._model: AutoModel | None = None
-        self._processor: AutoProcessor | None = None
+        self._model: SiglipModel | None = None
+        self._tokenizer: SiglipTokenizer | None = None
+        self._image_processor: SiglipImageProcessor | None = None
         self._device: torch.device | None = None
         self._text_inputs: dict | None = None
         self._all_candidates: list[str] = []
@@ -119,9 +120,10 @@ class SigLIPDetector:
 
         self._device = self._resolve_device()
 
-        self._model = AutoModel.from_pretrained(self._config.model_name).to(self._device)
+        self._model = SiglipModel.from_pretrained(self._config.model_name).to(self._device)
         self._model.eval()
-        self._processor = AutoProcessor.from_pretrained(self._config.model_name)
+        self._tokenizer = SiglipTokenizer.from_pretrained(self._config.model_name)
+        self._image_processor = SiglipImageProcessor.from_pretrained(self._config.model_name)
 
         # Build candidate list with tracked indices per category
         self._all_candidates = []
@@ -153,17 +155,18 @@ class SigLIPDetector:
 
     def _precompute_text_embeddings(self) -> None:
         """Pre-compute and cache text embeddings for all candidates."""
-        assert self._processor is not None
+        assert self._tokenizer is not None
         assert self._model is not None
 
-        text_inputs = self._processor(
-            text=self._all_candidates,
+        text_inputs = self._tokenizer(
+            self._all_candidates,
             padding="max_length",
             return_tensors="pt",
         ).to(self._device)
 
         with torch.no_grad():
-            self._text_embeds = self._model.get_text_features(**text_inputs)
+            text_output = self._model.get_text_features(**text_inputs)
+            self._text_embeds = text_output.pooler_output
             self._text_embeds = self._text_embeds / self._text_embeds.norm(dim=-1, keepdim=True)
 
         logger.debug("Pre-computed %d text embeddings", len(self._all_candidates))
@@ -184,7 +187,7 @@ class SigLIPDetector:
         if not self.is_loaded():
             self.load()
 
-        assert self._processor is not None
+        assert self._image_processor is not None
         assert self._model is not None
         assert self._text_embeds is not None
 
@@ -195,10 +198,13 @@ class SigLIPDetector:
         pil_image = Image.fromarray(rgb_frame)
 
         # Get image embedding
-        image_inputs = self._processor(images=pil_image, return_tensors="pt").to(self._device)
+        image_inputs = self._image_processor(images=pil_image, return_tensors="pt").to(
+            self._device
+        )
 
         with torch.no_grad():
-            image_embeds = self._model.get_image_features(**image_inputs)
+            image_output = self._model.get_image_features(**image_inputs)
+            image_embeds = image_output.pooler_output
             image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True)
 
             # Compute similarity scores (dot product of normalized embeddings)
