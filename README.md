@@ -1,19 +1,42 @@
 # 🐕 StudyWatchdog
 
-> A local AI assistant that watches you while you study — and if you get distracted for too long... it rickrolls you. 🎵
+> Your AI study companion that keeps you focused — with a twist! Get distracted for too long, and you'll be rickrolled. 🎵
 
-**StudyWatchdog** uses your webcam and a local vision model (**SigLIP**) to classify in real-time whether you're studying or not. If you stop for too long, it rickrolls you until you resume.
+**StudyWatchdog** is a local AI-powered study monitor that uses your webcam and computer vision to detect when you're studying vs. distracted. After a configurable period of distraction, it plays "Never Gonna Give You Up" until you get back to work.
 
-## 🎯 Goal
-A fun/educational project to explore local vision AI, not a commercial product.
+## Features
 
-## 🖥️ Hardware Target
-- GPU: NVIDIA RTX A2000 8GB (Laptop)
-- CPU: Intel i7-12850HX
-- RAM: 32GB
-- **Everything runs locally** — no cloud APIs
+- **Real-time Study Detection** — Uses SigLIP zero-shot image classification for accurate activity recognition
+- **Smart Decision Engine** — EMA smoothing + Finite State Machine prevents false alerts from brief glances away
+- **Rickroll Alerts** — Interruptible audio playback that stops when you resume studying
+- **100% Local** — No cloud APIs, no data collection, complete privacy
+- **Highly Configurable** — Adjust detection sensitivity, timeouts, text prompts, and more
+- **Debug Mode** — Live camera overlay with detection scores, state visualization, and controls
 
-## 🏗️ Architecture
+## Project Goals
+
+This is a fun/educational project designed to:
+- Explore **local vision AI** capabilities on consumer hardware
+- Demonstrate **zero-shot image classification** with SigLIP
+- Learn about **state machines** and **temporal signal processing** (EMA)
+- Build a practical (and entertaining) productivity tool
+
+**Not intended as a commercial product** — use it, learn from it, remix it!
+
+## Requirements
+
+### Hardware
+- **Webcam** (built-in or USB)
+- **GPU**: NVIDIA GPU with CUDA support recommended (runs on ~1GB VRAM)
+  - Also works on CPU, but slower (~300-500ms vs ~20-50ms per frame)
+- **RAM**: 4GB+ recommended
+
+### Software
+- **Python**: 3.12 or higher
+- **OS**: Linux, macOS, or Windows
+- **Package Manager**: [uv](https://github.com/astral-sh/uv) (fast Python package installer)
+
+## Architecture
 
 ```
 ┌───────────┐    ┌──────────────┐    ┌─────────────────┐    ┌───────────────┐
@@ -91,24 +114,116 @@ When the decision engine decides you've been distracted too long:
 - If you get distracted again, it restarts (with configurable cooldown to avoid being too aggressive)
 - Future: escalation (first a gentle nudge, then full rickroll, then TTS roast)
 
-## 🚀 Quick Start
+## Quick Start
+
+### Installation
+
+1. **Install uv** (if not already installed):
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. **Clone the repository**:
+   ```bash
+   git clone https://github.com/CristianoCorsi/StudyWatchdog.git
+   cd StudyWatchdog
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   uv sync
+   ```
+
+4. **Add rickroll audio** (optional, for alerts):
+   - Download `rickroll.mp3` and place it in the `assets/` folder
+   - Or use any MP3 file of your choice (configurable)
+
+### Usage
+
+**List available cameras**:
+```bash
+uv run studywatchdog --list-cameras
+```✅ Completed
+- [x] Core detection engine with SigLIP
+- [x] EMA + FSM decision system
+- [x] Rickroll alert system
+- [x] Debug overlay UI with live camera feed
+- [x] Interactive toolbar and keyboard shortcuts
+- [x] Multi-camera support
+- [x] Full configuration system
+
+### In Progress
+- [ ] Performance benchmarks across different hardware
+- [ ] Tuning default text prompts for better accuracy
+
+### Future Ideas
+- [ ] Session statistics dashboard (% time studying, focus streaks)
+- [ ] Alert escalation system (gentle nudge → rickroll → TTS roast)
+- [ ] Recording mode for calibration data
+- [ ] System tray / mini GUI
+- [ ] Cross-platform packaging (AppImage, .exe, .app)
+
+## Contributing
+
+Contributions are welcome! This is a learning project, so feel free to:
+- Report bugs or suggest features via [Issues](https://github.com/CristianoCorsi/StudyWatchdog/issues)
+- Submit Pull Requests with improvements
+- Share your configuration tweaks or text prompts that work well for your setup
+
+Please ensure:
+- Code follows the existing style (use `ruff format`)
+- Tests pass (`uv run pytest`)
+- New features include tests where applicable
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- **SigLIP** by Google Research — [paper](https://arxiv.org/abs/2303.15343)
+- **Transformers** by HuggingFace — [library](https://github.com/huggingface/transformers)
+- **uv** by Astral — [package manager](https://github.com/astral-sh/uv)
+
+---
+
+**Disclaimer**: This project is for educational and entertainment purposes. Use responsibly and ensure you comply with local privacy laws when using webcam monitoring software.C` | Cycle through cameras |
+| `S` | Show/hide score panel |
+| `R` | Reset state |
+| `Q` | Quit |
+
+## Configuration
+
+All parameters are configurable via TOML file or CLI arguments:
 
 ```bash
-# Install dependencies
-uv sync
+# Override camera index
+uv run studywatchdog --camera 0
 
-# Start
-uv run studywatchdog
+# Adjust detection interval
+uv run studywatchdog --interval 5.0
 
-# Test
+# Change distraction timeout
+uv run studywatchdog --timeout 60
+```
+
+See `uv run studywatchdog --generate-config` for a fully documented config file with all available options.
+
+## Testing
+
+```bash
+# Run all tests
 uv run pytest
+
+# Run with coverage
+uv run pytest --cov=studywatchdog
 
 # Lint & Format
 uv run ruff check src/
 uv run ruff format src/
 ```
 
-## 📦 Tech Stack
+## Tech Stack
 - **Python 3.12+**
 - **uv** — package manager
 - **SigLIP** (`google/siglip-base-patch16-224`) — zero-shot image classification
@@ -118,29 +233,42 @@ uv run ruff format src/
 - **Ruff** — linting/formatting
 - **pytest** — testing
 
-## 🗺️ Roadmap
+## Roadmap
 
-### Phase 1: Foundation ✅
-- [x] Project structure and config
-- [x] CLI entry point
-- [x] Camera capture working (live preview)
+### Completed
+- [x] Core detection engine with SigLIP
+- [x] EMA + FSM decision system
+- [x] Rickroll alert system
+- [x] Debug overlay UI with live camera feed
+- [x] Interactive toolbar and keyboard shortcuts
+- [x] Multi-camera support
+- [x] Full configuration system
 
-### Phase 2: Detection ✅
-- [x] SigLIP zero-shot classification integration
-- [x] Decision engine with EMA + FSM
-- [ ] Tuning text prompts and thresholds
-- [ ] Performance benchmarking on target hardware
+### In Progress
+- [ ] Performance benchmarks across different hardware
+- [ ] Tuning default text prompts for better accuracy
 
-### Phase 3: Rickroll 🎵
-- [ ] Download/include rickroll audio
-- [x] Play/stop controlled by decision engine
-- [x] Cooldown and anti-spam
-
-### Phase 4: Polish ✨
-- [ ] Data recording for calibration (user as test person)
-- [ ] Session statistics (% study time)
-- [ ] Alert escalation (nudge → rickroll → TTS roast)
+### Future Ideas
+- [ ] Session statistics dashboard (% time studying, focus streaks)
+- [ ] Alert escalation system (gentle nudge → rickroll → TTS roast)
+- [ ] Recording mode for calibration data
 - [ ] System tray / mini GUI
+- [ ] Cross-platform packaging (AppImage, .exe, .app)
 
-## 📄 License
-MIT
+## Contributing
+
+Contributions are welcome! This is a learning project, so feel free to:
+- Report bugs or suggest features via [Issues](https://github.com/CristianoCorsi/StudyWatchdog/issues)
+- Submit Pull Requests with improvements
+- Share your configuration tweaks or text prompts that work well for your setup
+
+Please ensure:
+- Code follows the existing style (use `ruff format`)
+- Tests pass (`uv run pytest`)
+- New features include tests where applicable
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
