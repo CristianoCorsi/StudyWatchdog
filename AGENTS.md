@@ -27,8 +27,8 @@ Build a webcam-based AI monitor that detects if the user is studying and rickrol
 
 ```
 ┌───────────┐    ┌──────────────┐    ┌─────────────────┐    ┌───────────────┐
-│  Camera   │───▶│  Detector    │───▶│ Decision Engine  │───▶│   Alerter     │
-│ (OpenCV)  │    │  (SigLIP)    │    │ (EMA + FSM)      │    │ (Rickroll 🎵) │
+│  Camera   │───▶│  Detector    │───▶│ Decision Engine │───▶│   Alerter     │
+│ (OpenCV)  │    │  (SigLIP)    │    │ (EMA + FSM)     │    │ (Rickroll 🎵) │
 └───────────┘    └──────────────┘    └─────────────────┘    └───────────────┘
                        │                      │
                        │      ┌────────┐      │
@@ -153,21 +153,21 @@ The decision engine prevents single-frame noise from triggering false alerts:
 
 ## 🗺️ Development Roadmap
 
-### Phase 1: Foundation ✏️
+### Phase 1: Foundation ✅
 - [x] Basic project structure and config
 - [x] CLI entry point
-- [ ] Camera capture working (show live preview)
+- [x] Camera capture working (show live preview)
 
-### Phase 2: Detection 🧠
-- [ ] SigLIP zero-shot classification integration
-- [ ] Decision engine with EMA + FSM
+### Phase 2: Detection ✅
+- [x] SigLIP zero-shot classification integration
+- [x] Decision engine with EMA + FSM
 - [ ] Tuning text candidates and thresholds
 - [ ] Performance benchmarking on target hardware
 
 ### Phase 3: Rickroll 🎵
-- [ ] Audio playback with play/stop control
-- [ ] Rickroll triggered by decision engine
-- [ ] Cooldown and anti-spam
+- [x] Audio playback with play/stop control
+- [x] Rickroll triggered by decision engine
+- [x] Cooldown and anti-spam
 
 ### Phase 4: Polish ✨
 - [ ] Recording mode for calibration data

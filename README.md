@@ -120,21 +120,21 @@ uv run ruff format src/
 
 ## 🗺️ Roadmap
 
-### Phase 1: Foundation ✏️
+### Phase 1: Foundation ✅
 - [x] Struttura progetto e config
 - [x] Entry point CLI
-- [ ] Camera capture funzionante (preview live)
+- [x] Camera capture funzionante (preview live)
 
-### Phase 2: Detection 🧠
-- [ ] Integrazione SigLIP zero-shot classification
-- [ ] Decision engine con EMA + FSM
+### Phase 2: Detection ✅
+- [x] Integrazione SigLIP zero-shot classification
+- [x] Decision engine con EMA + FSM
 - [ ] Tuning dei prompt testuali e soglie
 - [ ] Benchmark performance su hardware target
 
 ### Phase 3: Rickroll 🎵
 - [ ] Download/inclusione audio rickroll
-- [ ] Play/stop controllato dal decision engine
-- [ ] Cooldown e anti-spam
+- [x] Play/stop controllato dal decision engine
+- [x] Cooldown e anti-spam
 
 ### Phase 4: Polish ✨
 - [ ] Registrazione dati per calibrazione (utente come test person)

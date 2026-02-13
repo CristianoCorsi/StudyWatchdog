@@ -38,10 +38,11 @@ The project is composed of these modules:
 | Module | Responsibility |
 |---|---|
 | `camera.py` | Webcam capture via OpenCV, frame buffering |
-| `detector.py` | AI-based study detection (core logic) |
-| `alerter.py` | Sound playback, TTS, notification system |
-| `config.py` | Settings and configuration management |
-| `main.py` | Application entry point, orchestration loop |
+| `detector.py` | AI-based study detection (SigLIP zero-shot) |
+| `decision.py` | EMA smoothing + FSM state transitions |
+| `alerter.py` | Sound playback (rickroll), interruptible |
+| `config.py` | Settings and configuration (Pydantic) |
+| `main.py` | Application entry point, orchestration loop, debug overlay |
 
 ## Coding Conventions
 
@@ -97,9 +98,10 @@ StudyWatchdog/
 │       ├── __init__.py
 │       ├── main.py          # Entry point & orchestration
 │       ├── camera.py         # Webcam capture
-│       ├── detector.py       # Study detection AI
-│       ├── alerter.py        # Alert system
-│       └── config.py         # Configuration
+│       ├── detector.py       # Study detection AI (SigLIP)
+│       ├── decision.py       # EMA + FSM decision engine
+│       ├── alerter.py        # Alert system (rickroll)
+│       └── config.py         # Configuration (Pydantic)
 ├── tests/
 │   ├── __init__.py
 │   └── test_detector.py

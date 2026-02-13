@@ -4,7 +4,14 @@ version = "0.1.0"
 description = "AI-powered study monitor that uses your webcam to detect if you're studying and nudges you back on track"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "opencv-python>=4.13.0.92",
+    "pillow>=12.1.1",
+    "pydantic>=2.12.5",
+    "pygame>=2.6.1",
+    "torch>=2.10.0",
+    "transformers>=5.1.0",
+]
 
 [project.scripts]
 studywatchdog = "studywatchdog.main:main"
