@@ -39,9 +39,9 @@ STATE_COLORS = {
     StudyState.ALERT_ACTIVE: C_RED,
 }
 
-STATE_LABELS_IT = {
-    StudyState.STUDYING: "STAI STUDIANDO",
-    StudyState.DISTRACTED: "DISTRATTO...",
+STATE_LABELS = {
+    StudyState.STUDYING: "STUDYING",
+    StudyState.DISTRACTED: "DISTRACTED...",
     StudyState.ALERT_ACTIVE: "RICKROLL!",
 }
 
@@ -121,14 +121,14 @@ class DebugUI:
         self._paused = False
 
         # Build toolbar buttons
-        self._btn_pause = ToolbarButton("pause", "||", "Pausa/Riprendi detection (P)", toggle=True)
-        self._btn_cam = ToolbarButton("cam", "CAM", "Cambia telecamera (C)")
+        self._btn_pause = ToolbarButton("pause", "||", "Pause/Resume detection (P)", toggle=True)
+        self._btn_cam = ToolbarButton("cam", "CAM", "Switch camera (C)")
         self._btn_scores = ToolbarButton(
-            "scores", "SCR", "Mostra/nascondi score (S)", toggle=True
+            "scores", "SCR", "Show/hide scores (S)", toggle=True
         )
         self._btn_scores.active = True
-        self._btn_reset = ToolbarButton("reset", "RST", "Reset stato (R)")
-        self._btn_quit = ToolbarButton("quit", "Q", "Esci (Q)")
+        self._btn_reset = ToolbarButton("reset", "RST", "Reset state (R)")
+        self._btn_quit = ToolbarButton("quit", "Q", "Quit (Q)")
 
         self._buttons = [
             self._btn_pause,
@@ -183,14 +183,14 @@ class DebugUI:
     def _cycle_camera(self) -> None:
         """Switch to the next available camera."""
         if len(self._available_cameras) <= 1:
-            logger.info("Solo una telecamera disponibile")
+            logger.info("Only one camera available")
             return
         self._current_camera_idx = (self._current_camera_idx + 1) % len(
             self._available_cameras
         )
         new_cam = self._available_cameras[self._current_camera_idx]
         self.action_switch_camera = new_cam
-        logger.info("Cambio telecamera -> %d", new_cam)
+        logger.info("Switching camera -> %d", new_cam)
 
     def handle_key(self, key: int) -> None:
         """Handle keyboard shortcuts."""
@@ -231,7 +231,7 @@ class DebugUI:
 
         state = engine.state
         color = STATE_COLORS[state]
-        label = STATE_LABELS_IT[state]
+        label = STATE_LABELS[state]
         icon = STATE_ICONS[state]
 
         # ── Semi-transparent state banner ──
@@ -251,7 +251,7 @@ class DebugUI:
             remaining = max(0, engine._config.distraction_timeout - tis)
             time_str = f"alert in {remaining:.0f}s"
         elif state == StudyState.ALERT_ACTIVE:
-            time_str = f"rickroll da {tis:.0f}s"
+            time_str = f"rickroll for {tis:.0f}s"
         else:
             time_str = f"{tis:.0f}s"
         cv2.putText(
@@ -284,7 +284,7 @@ class DebugUI:
 
         # ── Paused overlay ──
         if self._paused:
-            pause_label = "PAUSA"
+            pause_label = "PAUSED"
             (pw, ph), _ = cv2.getTextSize(pause_label, cv2.FONT_HERSHEY_SIMPLEX, 1.2, 3)
             px, py = (w - pw) // 2, h // 2 + ph // 2
             cv2.rectangle(overlay, (px - 16, py - ph - 12), (px + pw + 16, py + 12), C_DARK, -1)
@@ -319,9 +319,9 @@ class DebugUI:
         panel_x = w - panel_w - 8
         panel_y = 82
         categories = [
-            ("Studio", result.studying_score, C_GREEN),
-            ("Distratto", result.not_studying_score, C_YELLOW),
-            ("Assente", result.absent_score, C_GRAY),
+            ("Studying", result.studying_score, C_GREEN),
+            ("Distracted", result.not_studying_score, C_YELLOW),
+            ("Absent", result.absent_score, C_GRAY),
         ]
         for i, (lbl, score, clr) in enumerate(categories):
             y = panel_y + i * 28
@@ -356,7 +356,7 @@ class DebugUI:
 
         # Keyboard shortcuts hint (right side)
         cv2.putText(
-            canvas, "P=pausa  C=cam  S=score  R=reset  Q=esci",
+            canvas, "P=pause  C=cam  S=score  R=reset  Q=quit",
             (w - 360, toolbar_y + 28),
             cv2.FONT_HERSHEY_SIMPLEX, 0.38, C_LIGHT_GRAY, 1, cv2.LINE_AA,
         )
@@ -487,11 +487,11 @@ def main() -> None:
     if args.list_cameras:
         cameras = list_cameras()
         if cameras:
-            print("Telecamere disponibili:")
+            print("Available cameras:")
             for idx in cameras:
                 print(f"  Camera {idx}")
         else:
-            print("Nessuna telecamera trovata.")
+            print("No cameras found.")
         sys.exit(0)
 
     # Handle --generate-config
@@ -528,13 +528,13 @@ def main() -> None:
     available_cameras = list_cameras()
     if not available_cameras:
         available_cameras = [config.camera.camera_index]
-    logger.info("Telecamere disponibili: %s", available_cameras)
+    logger.info("Available cameras: %s", available_cameras)
 
     # If chosen camera isn't available, fall back to first available
     if args.camera is None and config.camera.camera_index not in available_cameras:
         fallback = available_cameras[0]
         logger.warning(
-            "Camera %d non disponibile, uso camera %d",
+            "Camera %d not available, using camera %d",
             config.camera.camera_index,
             fallback,
         )

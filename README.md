@@ -1,24 +1,24 @@
 # 🐕 StudyWatchdog
 
-> Un assistente AI locale che ti tiene d'occhio mentre studi — e se ti distrai troppo a lungo... parte il rickroll. 🎵
+> A local AI assistant that watches you while you study — and if you get distracted for too long... it rickrolls you. 🎵
 
-**StudyWatchdog** usa la webcam e un modello di visione locale (**SigLIP**) per classificare in tempo reale se stai studiando o meno. Se smetti per troppo tempo, ti rickrolla finché non riprendi.
+**StudyWatchdog** uses your webcam and a local vision model (**SigLIP**) to classify in real-time whether you're studying or not. If you stop for too long, it rickrolls you until you resume.
 
 ## 🎯 Goal
-Un progetto fun/didattico per esplorare vision AI locale, non un prodotto commerciale.
+A fun/educational project to explore local vision AI, not a commercial product.
 
 ## 🖥️ Hardware Target
 - GPU: NVIDIA RTX A2000 8GB (Laptop)
 - CPU: Intel i7-12850HX
 - RAM: 32GB
-- **Tutto gira in locale** — nessuna API cloud
+- **Everything runs locally** — no cloud APIs
 
 ## 🏗️ Architecture
 
 ```
 ┌───────────┐    ┌──────────────┐    ┌─────────────────┐    ┌───────────────┐
-│  Camera   │───▶│  Detector    │───▶│ Decision Engine  │───▶│   Alerter     │
-│ (OpenCV)  │    │  (SigLIP)    │    │ (EMA + FSM)      │    │ (Rickroll 🎵) │
+│  Camera   │───▶│  Detector    │───▶│ Decision Engine │───▶│   Alerter     │
+│ (OpenCV)  │    │  (SigLIP)    │    │ (EMA + FSM)     │    │ (Rickroll 🎵) │
 └───────────┘    └──────────────┘    └─────────────────┘    └───────────────┘
                        │                      │
                        │      ┌────────┐      │
@@ -26,78 +26,78 @@ Un progetto fun/didattico per esplorare vision AI locale, non un prodotto commer
                               └────────┘
 ```
 
-### Loop Principale
-1. **Camera** cattura un frame ogni N secondi (default: 3s)
-2. **Detector (SigLIP)** calcola similarità immagine vs testi candidati → score numerico 0.0-1.0
-3. **Decision Engine** applica un EMA (Exponential Moving Average) sugli score per smussare i risultati, poi una FSM (Finite State Machine) decide le transizioni di stato
-4. **Alerter** avvia il rickroll quando il timeout di distrazione è superato, lo stoppa quando si riprende a studiare
+### Main Loop
+1. **Camera** captures a frame every N seconds (default: 3s)
+2. **Detector (SigLIP)** computes image similarity vs text candidates → numerical score 0.0-1.0
+3. **Decision Engine** applies EMA (Exponential Moving Average) on scores to smooth results, then an FSM (Finite State Machine) decides state transitions
+4. **Alerter** starts the rickroll when distraction timeout is exceeded, stops it when studying resumes
 
-### Perché SigLIP e non un LLM/VLM?
+### Why SigLIP and not an LLM/VLM?
 
-| Criterio | SigLIP (zero-shot classification) | VLM (moondream, LLaVA...) |
+| Criterion | SigLIP (zero-shot classification) | VLM (moondream, LLaVA...) |
 |---|---|---|
-| **Output** | Score numerico 0.0-1.0, diretto | Testo libero da parsare (fragile!) |
-| **Velocità** | ~20-50ms per frame su GPU | ~1-3s per frame |
-| **Dimensione** | ~0.2B params, ~400MB | ~2B+ params, ~4GB+ |
-| **Determinismo** | Stesso input → stesso output | Può variare ad ogni run |
-| **Robustezza** | Nessun parsing, nessuna hallucination | Il modello può "inventare" |
-| **Soglie** | Configurabili numericamente | Bisogna interpretare testo |
+| **Output** | Numerical score 0.0-1.0, direct | Free text to parse (fragile!) |
+| **Speed** | ~20-50ms per frame on GPU | ~1-3s per frame |
+| **Size** | ~0.2B params, ~400MB | ~2B+ params, ~4GB+ |
+| **Determinism** | Same input → same output | Can vary on each run |
+| **Robustness** | No parsing, no hallucination | The model can "invent" |
+| **Thresholds** | Numerically configurable | Need to interpret text |
 | **VRAM** | ~1GB | ~3-4GB |
 
-**SigLIP** è un modello contrastivo (come CLIP, ma migliore) che confronta un'immagine con delle descrizioni testuali e restituisce uno **score di similarità numerico** per ciascuna. Nessun testo da generare, nessun parsing, nessuna hallucination — solo numeri.
+**SigLIP** is a contrastive model (like CLIP, but better) that compares an image with text descriptions and returns a **numerical similarity score** for each. No text to generate, no parsing, no hallucinations — just numbers.
 
-### Come Funziona la Detection
+### How Detection Works
 
 ```python
-# Pseudocodice del detector
+# Detector pseudocode
 texts = [
     "a person studying, reading a book, or working focused at a desk",
     "a person distracted, looking at phone, not paying attention",
     "an empty desk, no person visible",
 ]
 scores = siglip(image, texts)  # → [0.82, 0.15, 0.03]
-# Il più alto vince → "studying" con confidence 0.82
+# Highest wins → "studying" with confidence 0.82
 ```
 
-I prompt testuali sono **configurabili**: se la classificazione non è buona su certi edge case, basta modificare le descrizioni testuali senza toccare codice o rifare training.
+Text prompts are **configurable**: if classification isn't good on certain edge cases, just modify the text descriptions without touching code or retraining.
 
-### Decision Engine: Tolleranza Temporale
+### Decision Engine: Temporal Tolerance
 
-Non basta un singolo frame per decidere — il sistema usa:
+A single frame isn't enough to decide — the system uses:
 
-1. **EMA (Exponential Moving Average)** sugli score di confidence per smussare rumore e flicker:
+1. **EMA (Exponential Moving Average)** on confidence scores to smooth noise and flicker:
    - $\text{EMA}_t = \alpha \cdot \text{score}_t + (1 - \alpha) \cdot \text{EMA}_{t-1}$
-   - Con $\alpha = 0.3$ (configurabile) → i singoli spike vengono attenuati
+   - With $\alpha = 0.3$ (configurable) → individual spikes are attenuated
 
-2. **FSM (Finite State Machine)** con 3 stati e transizioni a tempo:
+2. **FSM (Finite State Machine)** with 3 states and time-based transitions:
    ```
-   STUDYING ──(EMA < soglia per N secondi)──▶ DISTRACTED
-   DISTRACTED ──(EMA > soglia per M secondi)──▶ STUDYING
-   DISTRACTED ──(timeout superato)──▶ ALERT_ACTIVE (rickroll!)
-   ALERT_ACTIVE ──(EMA > soglia)──▶ STUDYING (rickroll stop)
+   STUDYING ──(EMA < threshold for N seconds)──▶ DISTRACTED
+   DISTRACTED ──(EMA > threshold for M seconds)──▶ STUDYING
+   DISTRACTED ──(timeout exceeded)──▶ ALERT_ACTIVE (rickroll!)
+   ALERT_ACTIVE ──(EMA > threshold)──▶ STUDYING (rickroll stop)
    ```
 
-3. **Parametri configurabili**:
-   - `distraction_timeout`: secondi prima dell'alert (default: 30s)
-   - `recovery_time`: secondi di studio per uscire dallo stato distratto (default: 5s)
-   - `studying_threshold`: soglia EMA per "sta studiando" (default: 0.5)
-   - `ema_alpha`: peso dell'ultimo frame nell'EMA (default: 0.3)
+3. **Configurable parameters**:
+   - `distraction_timeout`: seconds before alert (default: 30s)
+   - `recovery_time`: seconds of studying to exit distracted state (default: 5s)
+   - `studying_threshold`: EMA threshold for "is studying" (default: 0.5)
+   - `ema_alpha`: weight of latest frame in EMA (default: 0.3)
 
-### 🎵 Il Rickroll
+### 🎵 The Rickroll
 
-Quando il decision engine decide che sei distratto da troppo tempo:
-- Parte **"Never Gonna Give You Up"** di Rick Astley
-- La riproduzione è **interrompibile**: appena ricominci a studiare, si stoppa
-- Se ti ri-distrai, riparte (con cooldown configurabile per non essere troppo aggressivo)
-- In futuro: escalation (prima un nudge gentile, poi il rickroll completo, poi TTS roast)
+When the decision engine decides you've been distracted too long:
+- Plays **"Never Gonna Give You Up"** by Rick Astley
+- Playback is **interruptible**: as soon as you resume studying, it stops
+- If you get distracted again, it restarts (with configurable cooldown to avoid being too aggressive)
+- Future: escalation (first a gentle nudge, then full rickroll, then TTS roast)
 
 ## 🚀 Quick Start
 
 ```bash
-# Installa le dipendenze
+# Install dependencies
 uv sync
 
-# Avvia
+# Start
 uv run studywatchdog
 
 # Test
@@ -121,24 +121,24 @@ uv run ruff format src/
 ## 🗺️ Roadmap
 
 ### Phase 1: Foundation ✅
-- [x] Struttura progetto e config
-- [x] Entry point CLI
-- [x] Camera capture funzionante (preview live)
+- [x] Project structure and config
+- [x] CLI entry point
+- [x] Camera capture working (live preview)
 
 ### Phase 2: Detection ✅
-- [x] Integrazione SigLIP zero-shot classification
-- [x] Decision engine con EMA + FSM
-- [ ] Tuning dei prompt testuali e soglie
-- [ ] Benchmark performance su hardware target
+- [x] SigLIP zero-shot classification integration
+- [x] Decision engine with EMA + FSM
+- [ ] Tuning text prompts and thresholds
+- [ ] Performance benchmarking on target hardware
 
 ### Phase 3: Rickroll 🎵
-- [ ] Download/inclusione audio rickroll
-- [x] Play/stop controllato dal decision engine
-- [x] Cooldown e anti-spam
+- [ ] Download/include rickroll audio
+- [x] Play/stop controlled by decision engine
+- [x] Cooldown and anti-spam
 
 ### Phase 4: Polish ✨
-- [ ] Registrazione dati per calibrazione (utente come test person)
-- [ ] Statistiche sessione (% tempo studio)
+- [ ] Data recording for calibration (user as test person)
+- [ ] Session statistics (% study time)
 - [ ] Alert escalation (nudge → rickroll → TTS roast)
 - [ ] System tray / mini GUI
 
