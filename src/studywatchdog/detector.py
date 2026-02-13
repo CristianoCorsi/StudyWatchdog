@@ -168,6 +168,8 @@ class SigLIPDetector:
             text_output = self._model.get_text_features(**text_inputs)
             self._text_embeds = text_output.pooler_output
             self._text_embeds = self._text_embeds / self._text_embeds.norm(dim=-1, keepdim=True)
+            # Cache logit_scale for inference (no bias — it breaks zero-shot)
+            self._logit_scale = self._model.logit_scale.exp()
 
         logger.debug("Pre-computed %d text embeddings", len(self._all_candidates))
 
@@ -207,13 +209,13 @@ class SigLIPDetector:
             image_embeds = image_output.pooler_output
             image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True)
 
-            # Compute similarity scores (dot product of normalized embeddings)
-            # SigLIP uses a learned temperature, but for classification we use sigmoid
-            logits = (
-                torch.matmul(image_embeds, self._text_embeds.t()) * self._model.logit_scale.exp()
-                + self._model.logit_bias
-            )
-            probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()
+            # Compute similarity scores (cosine similarity scaled by temperature)
+            # NOTE: We use softmax, NOT sigmoid+logit_bias. The logit_bias is
+            # a training artifact that pushes all sigmoid outputs to ~0.0,
+            # making zero-shot classification useless. Softmax over the scaled
+            # cosine similarities gives proper relative probabilities.
+            logits = torch.matmul(image_embeds, self._text_embeds.t()) * self._logit_scale
+            probs = torch.softmax(logits, dim=-1).squeeze(0).cpu().numpy()
 
         # Build per-candidate scores dict
         per_candidate_scores: dict[str, float] = {}

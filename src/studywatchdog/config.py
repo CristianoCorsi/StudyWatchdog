@@ -36,25 +36,26 @@ class DetectorConfig(BaseModel):
     )
     studying_candidates: list[str] = Field(
         default=[
-            "a person studying, reading a book, or working focused at a desk",
-            "a person writing notes or working on a laptop with concentration",
-            "a person reading a tablet or e-reader with focus",
+            "a person reading a book at a desk",
+            "a person writing notes with a pen",
+            "a person focused on a laptop screen, working",
+            "a student studying at a desk",
         ],
         description="Text descriptions that indicate studying",
     )
     not_studying_candidates: list[str] = Field(
         default=[
-            "a person distracted, looking at their phone, scrolling social media",
-            "a person sleeping, resting their head on the desk",
-            "a person looking away from their work, daydreaming",
-            "a person eating, drinking, or doing something unrelated to studying",
+            "a person looking at a smartphone",
+            "a person sleeping with head on desk",
+            "a person yawning or stretching",
+            "a person turned away from the desk",
         ],
         description="Text descriptions that indicate NOT studying",
     )
     absent_candidates: list[str] = Field(
         default=[
-            "an empty desk or room with no person visible",
-            "an empty chair at a desk, nobody present",
+            "an empty room with no people",
+            "an empty chair, nobody sitting",
         ],
         description="Text descriptions that indicate nobody is there",
     )

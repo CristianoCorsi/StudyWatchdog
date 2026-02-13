@@ -24,13 +24,19 @@ def list_cameras(max_index: int = 10) -> list[int]:
         List of valid camera indices.
     """
     available: list[int] = []
-    for i in range(max_index):
-        cap = cv2.VideoCapture(i)
-        if cap.isOpened():
-            ret, _ = cap.read()
-            if ret:
-                available.append(i)
-            cap.release()
+    # Suppress noisy V4L2 and FFMPEG warnings during probe
+    prev_level = cv2.getLogLevel()
+    cv2.setLogLevel(0)  # LOG_LEVEL_SILENT
+    try:
+        for i in range(max_index):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    available.append(i)
+                cap.release()
+    finally:
+        cv2.setLogLevel(prev_level)
     return available
 
 
