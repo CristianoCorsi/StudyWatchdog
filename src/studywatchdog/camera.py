@@ -3,6 +3,7 @@
 Handles camera device selection, frame capture, and resource cleanup.
 """
 
+import contextlib
 import logging
 import time
 
@@ -25,8 +26,8 @@ def list_cameras(max_index: int = 10) -> list[int]:
     """
     available: list[int] = []
     # Suppress noisy V4L2 and FFMPEG warnings during probe
-    prev_level = cv2.getLogLevel()
-    cv2.setLogLevel(0)  # LOG_LEVEL_SILENT
+    with contextlib.suppress(AttributeError, cv2.error):
+        cv2.setLogLevel(0)  # LOG_LEVEL_SILENT
     try:
         for i in range(max_index):
             cap = cv2.VideoCapture(i)
@@ -36,7 +37,8 @@ def list_cameras(max_index: int = 10) -> list[int]:
                     available.append(i)
                 cap.release()
     finally:
-        cv2.setLogLevel(prev_level)
+        with contextlib.suppress(AttributeError, cv2.error):
+            cv2.setLogLevel(3)  # LOG_LEVEL_WARNING (default)
     return available
 
 

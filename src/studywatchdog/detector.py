@@ -14,6 +14,7 @@ from typing import Protocol
 
 import numpy as np
 import torch
+from huggingface_hub import try_to_load_from_cache
 from PIL import Image
 from transformers import SiglipImageProcessor, SiglipModel, SiglipTokenizer
 
@@ -120,10 +121,21 @@ class SigLIPDetector:
 
         self._device = self._resolve_device()
 
-        self._model = SiglipModel.from_pretrained(self._config.model_name).to(self._device)
+        # Use cached model if available — avoids HTTP requests to HuggingFace on every run
+        local_only = self._is_model_cached(self._config.model_name)
+        if local_only:
+            logger.debug("Model found in cache, loading offline")
+
+        self._model = SiglipModel.from_pretrained(
+            self._config.model_name, local_files_only=local_only
+        ).to(self._device)
         self._model.eval()
-        self._tokenizer = SiglipTokenizer.from_pretrained(self._config.model_name)
-        self._image_processor = SiglipImageProcessor.from_pretrained(self._config.model_name)
+        self._tokenizer = SiglipTokenizer.from_pretrained(
+            self._config.model_name, local_files_only=local_only
+        )
+        self._image_processor = SiglipImageProcessor.from_pretrained(
+            self._config.model_name, local_files_only=local_only
+        )
 
         # Build candidate list with tracked indices per category
         self._all_candidates = []
@@ -152,6 +164,12 @@ class SigLIPDetector:
             elapsed,
             len(self._all_candidates),
         )
+
+    @staticmethod
+    def _is_model_cached(model_name: str) -> bool:
+        """Check if the model files are already in the HuggingFace cache."""
+        result = try_to_load_from_cache(model_name, "config.json")
+        return isinstance(result, str)  # Returns path string if cached, None otherwise
 
     def _precompute_text_embeddings(self) -> None:
         """Pre-compute and cache text embeddings for all candidates."""

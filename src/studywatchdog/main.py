@@ -15,7 +15,7 @@ import numpy as np
 
 from studywatchdog.alerter import Alerter
 from studywatchdog.camera import Camera, list_cameras
-from studywatchdog.config import AppConfig, CameraConfig, load_config
+from studywatchdog.config import AppConfig, CameraConfig, generate_default_config, load_config
 from studywatchdog.decision import DecisionEngine, StudyState
 from studywatchdog.detector import DetectionResult, SigLIPDetector
 
@@ -149,8 +149,9 @@ class DebugUI:
         return self._paused
 
     def setup_window(self) -> None:
-        """Create the OpenCV window and set up mouse callback."""
-        cv2.namedWindow(self.WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        """Create a resizable OpenCV window and set up mouse callback."""
+        cv2.namedWindow(self.WINDOW_NAME, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_EXPANDED)
+        cv2.resizeWindow(self.WINDOW_NAME, 800, 600)
         cv2.setMouseCallback(self.WINDOW_NAME, self._on_mouse)
 
     def _on_mouse(self, event: int, x: int, y: int, _flags: int, _param: object) -> None:
@@ -402,6 +403,15 @@ def parse_args() -> argparse.Namespace:
         help="List available cameras and exit",
     )
     parser.add_argument(
+        "--generate-config", nargs="?", const="auto", default=None,
+        metavar="PATH",
+        help=(
+            "Generate a default config file with documentation and exit. "
+            "Writes to ~/.config/studywatchdog/config.toml by default, "
+            "or to the given PATH if provided."
+        ),
+    )
+    parser.add_argument(
         "--interval", "-i", type=float, default=None,
         help="Seconds between detection frames (default: 3.0)",
     )
@@ -484,6 +494,16 @@ def main() -> None:
             print("Nessuna telecamera trovata.")
         sys.exit(0)
 
+    # Handle --generate-config
+    if args.generate_config is not None:
+        from pathlib import Path as _Path
+
+        out = None if args.generate_config == "auto" else _Path(args.generate_config)
+        written = generate_default_config(out)
+        print(f"Config file generated: {written}")
+        print("Edit it to customize StudyWatchdog, then run: studywatchdog --debug")
+        sys.exit(0)
+
     # Load config
     config_path = None
     if args.config:
@@ -504,11 +524,21 @@ def main() -> None:
         config.decision.distraction_timeout,
     )
 
-    # Discover cameras
+    # Discover cameras and validate chosen camera
     available_cameras = list_cameras()
     if not available_cameras:
         available_cameras = [config.camera.camera_index]
     logger.info("Telecamere disponibili: %s", available_cameras)
+
+    # If chosen camera isn't available, fall back to first available
+    if args.camera is None and config.camera.camera_index not in available_cameras:
+        fallback = available_cameras[0]
+        logger.warning(
+            "Camera %d non disponibile, uso camera %d",
+            config.camera.camera_index,
+            fallback,
+        )
+        config.camera.camera_index = fallback
 
     # Initialize components
     camera = Camera(config.camera)
