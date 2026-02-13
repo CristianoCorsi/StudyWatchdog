@@ -1,8 +1,8 @@
 # 🐕 StudyWatchdog
 
-> Un assistente AI locale che ti tiene d'occhio mentre studi — e ti richiama se ti distrai troppo.
+> Un assistente AI locale che ti tiene d'occhio mentre studi — e se ti distrai troppo a lungo... parte il rickroll. 🎵
 
-**StudyWatchdog** usa la webcam e modelli AI locali per capire se stai studiando o meno. Se smetti per troppo tempo, ti avvisa con suoni, TTS, o notifiche.
+**StudyWatchdog** usa la webcam e un modello di visione locale (**SigLIP**) per classificare in tempo reale se stai studiando o meno. Se smetti per troppo tempo, ti rickrolla finché non riprendi.
 
 ## 🎯 Goal
 Un progetto fun/didattico per esplorare vision AI locale, non un prodotto commerciale.
@@ -16,57 +16,84 @@ Un progetto fun/didattico per esplorare vision AI locale, non un prodotto commer
 ## 🏗️ Architecture
 
 ```
-Camera → Detector (AI) → Decision Engine → Alerter
-              ↑                    ↑
-              └──── Config ────────┘
+┌───────────┐    ┌──────────────┐    ┌─────────────────┐    ┌───────────────┐
+│  Camera   │───▶│  Detector    │───▶│ Decision Engine  │───▶│   Alerter     │
+│ (OpenCV)  │    │  (SigLIP)    │    │ (EMA + FSM)      │    │ (Rickroll 🎵) │
+└───────────┘    └──────────────┘    └─────────────────┘    └───────────────┘
+                       │                      │
+                       │      ┌────────┐      │
+                       └─────▶│ Config │◀─────┘
+                              └────────┘
 ```
 
-Loop principale:
-1. Cattura frame dalla webcam (ogni 5s configurabili)
-2. Il detector classifica: `studying` | `not_studying` | `absent`
-3. Il decision engine traccia lo stato nel tempo
-4. L'alerter si attiva dopo un timeout di distrazione
+### Loop Principale
+1. **Camera** cattura un frame ogni N secondi (default: 3s)
+2. **Detector (SigLIP)** calcola similarità immagine vs testi candidati → score numerico 0.0-1.0
+3. **Decision Engine** applica un EMA (Exponential Moving Average) sugli score per smussare i risultati, poi una FSM (Finite State Machine) decide le transizioni di stato
+4. **Alerter** avvia il rickroll quando il timeout di distrazione è superato, lo stoppa quando si riprende a studiare
 
-## 🧠 Opzioni per la Detection
+### Perché SigLIP e non un LLM/VLM?
 
-### Opzione A: Small Vision-Language Model (VLM) — ⭐ Consigliata
-**Modello: [moondream2](https://github.com/vikhyat/moondream)** (~2B parametri)
+| Criterio | SigLIP (zero-shot classification) | VLM (moondream, LLaVA...) |
+|---|---|---|
+| **Output** | Score numerico 0.0-1.0, diretto | Testo libero da parsare (fragile!) |
+| **Velocità** | ~20-50ms per frame su GPU | ~1-3s per frame |
+| **Dimensione** | ~0.2B params, ~400MB | ~2B+ params, ~4GB+ |
+| **Determinismo** | Stesso input → stesso output | Può variare ad ogni run |
+| **Robustezza** | Nessun parsing, nessuna hallucination | Il modello può "inventare" |
+| **Soglie** | Configurabili numericamente | Bisogna interpretare testo |
+| **VRAM** | ~1GB | ~3-4GB |
 
-- **Pro**: Molto flessibile — basta chiedere "is this person studying?" in linguaggio naturale
-- **Pro**: Capisce il contesto visivo (libri, laptop, postura, ecc.)
-- **Pro**: Sta comodamente in 8GB VRAM (anche in fp16)
-- **Pro**: Può dare risposte articolate, non solo classificazione binaria
-- **Con**: Più lento (~1-3s per frame su A2000), ma accettabile per analisi ogni 5s
-- **Con**: Può essere inconsistente su edge cases
+**SigLIP** è un modello contrastivo (come CLIP, ma migliore) che confronta un'immagine con delle descrizioni testuali e restituisce uno **score di similarità numerico** per ciascuna. Nessun testo da generare, nessun parsing, nessuna hallucination — solo numeri.
 
-**Come funziona**: Dai un'immagine al modello + un prompt tipo "Describe what the person is doing. Are they studying or distracted?" e il modello risponde in testo. Si parsa la risposta per determinare lo stato.
+### Come Funziona la Detection
 
-### Opzione B: MediaPipe Pose Estimation + Regole
-- **Pro**: Ultra-veloce (<50ms), leggero, nessuna GPU necessaria
-- **Pro**: Deterministico e prevedibile
-- **Con**: Molto limitato — può dire "persona seduta al desk" ma non se sta studiando vs scrollando Instagram
-- **Con**: Richiede regole manuali (fragile)
+```python
+# Pseudocodice del detector
+texts = [
+    "a person studying, reading a book, or working focused at a desk",
+    "a person distracted, looking at phone, not paying attention",
+    "an empty desk, no person visible",
+]
+scores = siglip(image, texts)  # → [0.82, 0.15, 0.03]
+# Il più alto vince → "studying" con confidence 0.82
+```
 
-### Opzione C: YOLO Object Detection
-- **Pro**: Veloce, affidabile per detection di oggetti (libri, laptop, telefono)
-- **Con**: Rileva oggetti, non attività — un libro aperto non vuol dire che stai leggendo
+I prompt testuali sono **configurabili**: se la classificazione non è buona su certi edge case, basta modificare le descrizioni testuali senza toccare codice o rifare training.
 
-### Opzione D: Classificatore Custom (fine-tuned)
-- **Pro**: Potenzialmente molto accurato
-- **Con**: Richiede raccolta dati e training — troppo effort per un progetto fun
+### Decision Engine: Tolleranza Temporale
 
-### 🏆 Strategia Raccomandata: Partire con Moondream2
+Non basta un singolo frame per decidere — il sistema usa:
 
-**Perché**: È il miglior rapporto effort/risultato. Con un singolo prompt puoi ottenere una classificazione ragionevole senza dover definire regole manuali o raccogliere dataset. Se non funziona bene, si può sempre aggiungere MediaPipe come fallback leggero.
+1. **EMA (Exponential Moving Average)** sugli score di confidence per smussare rumore e flicker:
+   - $\text{EMA}_t = \alpha \cdot \text{score}_t + (1 - \alpha) \cdot \text{EMA}_{t-1}$
+   - Con $\alpha = 0.3$ (configurabile) → i singoli spike vengono attenuati
 
-**Piano B**: Se moondream2 è troppo lento o impreciso, si può provare il modello 0.5B o passare a un approccio YOLO + regole euristiche.
+2. **FSM (Finite State Machine)** con 3 stati e transizioni a tempo:
+   ```
+   STUDYING ──(EMA < soglia per N secondi)──▶ DISTRACTED
+   DISTRACTED ──(EMA > soglia per M secondi)──▶ STUDYING
+   DISTRACTED ──(timeout superato)──▶ ALERT_ACTIVE (rickroll!)
+   ALERT_ACTIVE ──(EMA > soglia)──▶ STUDYING (rickroll stop)
+   ```
+
+3. **Parametri configurabili**:
+   - `distraction_timeout`: secondi prima dell'alert (default: 30s)
+   - `recovery_time`: secondi di studio per uscire dallo stato distratto (default: 5s)
+   - `studying_threshold`: soglia EMA per "sta studiando" (default: 0.5)
+   - `ema_alpha`: peso dell'ultimo frame nell'EMA (default: 0.3)
+
+### 🎵 Il Rickroll
+
+Quando il decision engine decide che sei distratto da troppo tempo:
+- Parte **"Never Gonna Give You Up"** di Rick Astley
+- La riproduzione è **interrompibile**: appena ricominci a studiare, si stoppa
+- Se ti ri-distrai, riparte (con cooldown configurabile per non essere troppo aggressivo)
+- In futuro: escalation (prima un nudge gentile, poi il rickroll completo, poi TTS roast)
 
 ## 🚀 Quick Start
 
 ```bash
-# Clona e entra nella directory
-cd StudyWatchdog
-
 # Installa le dipendenze
 uv sync
 
@@ -84,33 +111,36 @@ uv run ruff format src/
 ## 📦 Tech Stack
 - **Python 3.12+**
 - **uv** — package manager
-- **OpenCV** — webcam
-- **PyTorch + Transformers** — AI models
+- **SigLIP** (`google/siglip-base-patch16-224`) — zero-shot image classification
+- **OpenCV** — webcam capture
+- **PyTorch + Transformers** — model runtime
+- **pygame** — audio playback (rickroll!)
 - **Ruff** — linting/formatting
 - **pytest** — testing
 
 ## 🗺️ Roadmap
 
-### Phase 1: Foundation
-- [ ] Webcam capture funzionante (preview live)
-- [ ] Struttura progetto e config
-- [ ] Entry point CLI
+### Phase 1: Foundation ✏️
+- [x] Struttura progetto e config
+- [x] Entry point CLI
+- [ ] Camera capture funzionante (preview live)
 
-### Phase 2: Detection
-- [ ] Integrazione moondream2
-- [ ] Classificazione base "studia vs non studia"
+### Phase 2: Detection 🧠
+- [ ] Integrazione SigLIP zero-shot classification
+- [ ] Decision engine con EMA + FSM
+- [ ] Tuning dei prompt testuali e soglie
 - [ ] Benchmark performance su hardware target
 
-### Phase 3: Alerts
-- [ ] Riproduzione suono quando ti distrai
-- [ ] Timeout e cooldown configurabili
-- [ ] TTS base
+### Phase 3: Rickroll 🎵
+- [ ] Download/inclusione audio rickroll
+- [ ] Play/stop controllato dal decision engine
+- [ ] Cooldown e anti-spam
 
-### Phase 4: Polish
-- [ ] System tray / mini GUI
+### Phase 4: Polish ✨
+- [ ] Registrazione dati per calibrazione (utente come test person)
 - [ ] Statistiche sessione (% tempo studio)
-- [ ] Fine-tune della detection
-- [ ] Sistema di escalation degli alert
+- [ ] Alert escalation (nudge → rickroll → TTS roast)
+- [ ] System tray / mini GUI
 
 ## 📄 License
 MIT

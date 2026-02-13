@@ -1,11 +1,27 @@
 # Copilot Instructions for StudyWatchdog
 
+## ⚠️ CRITICAL: Keep Docs In Sync
+Whenever you make changes to architecture, dependencies, modules, config, or design decisions,
+you MUST also update: `README.md`, `AGENTS.md`, and this file (`.github/copilot-instructions.md`).
+No exceptions.
+
 ## Project Overview
-StudyWatchdog is a Python application that uses a webcam and local AI models to detect whether the user is studying or not. If the user stops studying for a configurable period, the system alerts them (sound, TTS, etc.).
+StudyWatchdog is a Python application that uses a webcam and **SigLIP** (zero-shot image classification) to detect whether the user is studying or not. If the user stops studying for a configurable period, the system plays a rickroll until they resume. Everything runs locally.
+
+## Detection Approach
+- **Model**: SigLIP (`google/siglip-base-patch16-224`) — zero-shot image classification
+- **NOT** a VLM/LLM — we do NOT generate text or parse natural language responses
+- **Output**: Numerical similarity scores (0.0-1.0) per text candidate
+- **Decision**: EMA smoothing + Finite State Machine with temporal tolerance
+- **Alert**: Rickroll (interruptible audio playback)
 
 ## Tech Stack
 - **Language**: Python 3.12+
 - **Package Manager**: `uv` (NOT pip, NOT conda, NOT poetry)
+- **AI Model**: SigLIP via `transformers` + `torch`
+- **Webcam**: OpenCV (`opencv-python`)
+- **Audio**: `pygame` (for rickroll playback)
+- **Config**: Pydantic models
 - **Linter/Formatter**: Ruff
 - **Testing**: pytest
 - **Project Layout**: `src/` layout (`src/studywatchdog/`)
@@ -64,11 +80,14 @@ The project is composed of these modules:
 
 ## AI/ML Specific Guidelines
 - Models must fit in **8GB VRAM** (RTX A2000)
-- Prefer quantized models (4-bit, 8-bit) when available
+- Use **SigLIP** for detection — NOT VLMs, NOT LLMs
+- Text candidates (prompts) are **configurable** in config, not hardcoded
+- Pre-compute text embeddings at model load time (they don't change per frame)
 - Use **lazy loading** for models (don't load until needed)
-- Frame capture interval should be **configurable** (default: every 5s)
+- Frame capture interval should be **configurable** (default: every 3s)
 - Detection should be **async-friendly** (don't block the main loop)
 - Cache model instances — never reload per-frame
+- Use EMA smoothing + FSM for decision — never trigger on a single frame
 
 ## File Organization
 ```
@@ -104,3 +123,5 @@ uv add --dev <package>        # Add dev dependency
 - It's OK to start with a naive approach and improve iteratively
 - Keep the feedback loop short: get something visible working ASAP
 - The main detection loop captures a frame → runs detection → decides → alerts
+- The rickroll must be **interruptible** — stop playback as soon as studying resumes
+- Decision engine uses EMA + FSM — never alert on a single frame
